@@ -21,6 +21,10 @@ function __ChartsConstructor() {
         __defaultUpdateFn = f;
     };
 
+    function round(val) {
+        return Number(Math.round(val+'e11')+'e-11');
+    }
+
     this.plotDataAndCreateChart = function(canvasId, params,
             {ySteps = [], xSteps = [], yId = '', xId = '', yName = yId, xName = xId, title = '', strict = false,
              updateFn = __defaultUpdateFn, expectedMax, middleLineTitle} = {}) {
@@ -32,7 +36,7 @@ function __ChartsConstructor() {
             xName: xName,
             labels: xSteps,
             expectedMax: expectedMax,
-            datasets: createDatasetFromSteps(params, ySteps, xSteps, yName, (y,x) => {
+            datasets: createDatasetFromSteps(params, updateFn, ySteps, xSteps, yName, (y,x) => {
                 let r = {};
                 r[yId] = y;
                 r[xId] = x;
@@ -41,7 +45,7 @@ function __ChartsConstructor() {
         });
     };
 
-    function createDatasetFromSteps(params, ySteps, xSteps, yLabel, f, strict = false, middleLine) {
+    function createDatasetFromSteps(params, updateFn, ySteps, xSteps, yLabel, f, strict = false, middleLine) {
         let datasets = ySteps.map(function (y, idx) {
             return {
                 label: yLabel + ' = ' + y,
@@ -50,7 +54,7 @@ function __ChartsConstructor() {
                 borderColor: COLOR_ARR[idx],
                 backgroundColor: COLOR_ARR[idx],
                 data: xSteps.map(function (x) {
-                    return update(Object.assign(Object.create(params), f(y, x)), strict).H;
+                    return updateFn(Object.assign(Object.create(params), f(y, x)), strict).H;
                 })
             };
         });

@@ -2,7 +2,7 @@
     <head>
 
         <title>
-            Cardano Pool Rewards distribution demo
+            Cardano Pool Performance Demo
         </title>
 
         <script src="../../assets/js/vendor/jquery/jquery.min.js"></script>
@@ -10,39 +10,10 @@
         <script src="../../assets/js/utils.js"></script>
         <script src="../../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.bundle.min.js"></script>
+        <script src="../demo-charts.js"></script>
 
         <link rel="stylesheet" href="../../node_modules/bootstrap/dist/css/bootstrap.min.css">
-
-        <style type="text/css">
-            body {
-                padding-top: 5rem;
-            }
-
-            .chart-canvas {
-                width: 50%;
-            }
-            p, div.alert {
-                width: 60%;
-            }
-
-            @media (max-width: 1023.99px) {
-                .chart-canvas {
-                    width: 75%;
-                }
-                p, div.alert {
-                    width: 80%;
-                }
-            }
-
-            @media (max-width: 767.99px) {
-                .chart-canvas {
-                    width: 100%;
-                }
-                p, div.alert {
-                    width: 100%;
-                }
-            }
-        </style>
+        <link rel="stylesheet" href="../demo-page.css">
 
         <script language="JavaScript">
 
@@ -54,22 +25,6 @@
             };
 
             const FLOATS = ['y', 'reward'];
-
-            const COLORS = {
-                black: 'rgb(0, 0, 0)',
-                red: 'rgb(255, 99, 132)',
-                orange: 'rgb(255, 159, 64)',
-                aqua: 'rgb(0, 255, 255)',
-                yellow: 'rgb(255, 205, 86)',
-                green: 'rgb(75, 192, 192)',
-                brown: 'rgb(165, 42, 42)',
-                blue: 'rgb(54, 162, 235)',
-                purple: 'rgb(153, 102, 255)',
-                grey: 'rgb(201, 203, 207)',
-                cadet: 'rgb(95, 158, 160)'
-            };
-            const COLOR_ARR = Object.values(COLORS);
-
             const STEPS_Y = Object.freeze([0.0, 0.25, 0.5, 0.75, 1, 1.5, 2, 5, 10]);
 
             $(function() {
@@ -77,6 +32,8 @@
                 Object.entries(PARAMS).forEach(function ([k, v]) {
                     $('#' + k).val(v);
                 });
+
+                DemoCharts.setDefaultUpdateFn(update);
 
                 $('input').on("change paste keyup", function () {
                     $this = $(this);
@@ -145,14 +102,16 @@
             function draw_nyN_chart(canvas_id, params) {
                 let step = Math.max(Number((params.slots / 20).toFixed(0)), 1);
                 let nSteps = [...Array(params.slots + 1).keys()].filter(x => x % step === 0);
-                return plotDataAndCreateChart(canvas_id, params, {
+                return DemoCharts.plotDataAndCreateChart(canvas_id, params, {
                     ySteps: STEPS_Y,
                     xSteps: nSteps,
                     yId: 'y',
                     xId: 'blocks',
                     xName: 'n',
                     title: 'Changing of result (H) in dependence to y and n (N = ' + params.slots + ')',
-                    strict: true
+                    strict: true,
+                    expectedMax: params.reward,
+                    middleLineTitle: 'H = 50%'
                 });
             }
 
@@ -160,7 +119,7 @@
                 let step = Math.max(Number((params.slots / 20).toFixed(0)), 1);
                 let nSteps = [...Array(params.slots + 1).keys()].filter(x => x % step === 0);
                 let ySteps = nSteps.filter(x => x % (step * 4) === 0);
-                return plotDataAndCreateChart(canvas_id, params, {
+                return DemoCharts.plotDataAndCreateChart(canvas_id, params, {
                     ySteps: ySteps,
                     xSteps: nSteps,
                     yId: 'slots',
@@ -168,91 +127,11 @@
                     yName: 'N',
                     xName: 'n',
                     title: 'Changing of result (H) in dependence to N and n (y = ' + params.y + ')',
-                    strict: true
-                });
-            }
-
-            function plotDataAndCreateChart(canvasId, params,
-                    {ySteps = [], xSteps = [], yId = '', xId = '', yName = yId, xName = xId, title = '', strict = false} = {}) {
-                return createChart(canvasId, {
-                    title: title,
-                    xName: xName,
-                    labels: xSteps,
+                    strict: true,
                     expectedMax: params.reward,
-                    datasets: createDatasetFromSteps(params, ySteps, xSteps, yName, (y,x) => {
-                        let r = {};
-                        r[yId] = y;
-                        r[xId] = x;
-                        return r;
-                    }, strict)
+                    middleLineTitle: 'H = 50%'
                 });
             }
-
-            function createDatasetFromSteps(params, ySteps, xSteps, yLabel, f, strict = false) {
-                let datasets = ySteps.map(function (y, idx) {
-                    return {
-                        label: yLabel + ' = ' + y,
-                        fill: false,
-                        lineTension: 0.2,
-                        borderColor: COLOR_ARR[idx],
-                        backgroundColor: COLOR_ARR[idx],
-                        data: xSteps.map(function (x) {
-                            return update(Object.assign(Object.create(params), f(y, x)), strict).H;
-                        })
-                    };
-                });
-                datasets.push({
-                    label: 'H = 50%',
-                    fill: false,
-                    lineTension: 0,
-                    borderColor: 'rgb(200, 200, 200)',
-                    backgroundColor: 'rgb(200, 200, 200)',
-                    data: Array.apply(null, Array(datasets[0].data.length)).map(x => round(params.reward / 2)),
-                    pointRadius: 0
-                });
-                return datasets;
-            }
-
-            function createChart(canvasId, {labels = [], datasets = [], xName = '', title = '', expectedMax = 1} = {}) {
-                let ctx = document.getElementById(canvasId).getContext('2d');
-                let max = Math.max.apply(null, datasets.map(d => d.data.filter(x => !Number.isNaN(x))).flat());
-                return Chart.Line(ctx, {
-                    data: {
-                        labels: labels,
-                        datasets: datasets
-                    },
-                    options: {
-                        title: {
-                            display: true,
-                            text: title
-                        },
-                        animation: {
-                            duration: 0
-                        },
-                        scales: {
-                            xAxes: [{
-                                display: true,
-                                scaleLabel: {
-                                    display: true,
-                                    labelString: xName
-                                }
-                            }],
-                            yAxes: [{
-                                display: true,
-                                scaleLabel: {
-                                    display: true,
-                                    labelString: 'H'
-                                },
-                                ticks : {
-                                    beginAtZero : true,
-                                    max: Math.max(max, expectedMax)
-                                }
-                            }]
-                        }
-                    }
-                });
-            }
-
             </script>
     </head>
     <body>

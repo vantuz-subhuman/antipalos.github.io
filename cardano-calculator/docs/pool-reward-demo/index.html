@@ -2,7 +2,7 @@
     <head>
 
         <title>
-            Cardano Pool Rewards distribution demo
+            Cardano Pool Reward Demo
         </title>
 
         <script src="../../assets/js/vendor/jquery/jquery.min.js"></script>
@@ -10,39 +10,10 @@
         <script src="../../assets/js/utils.js"></script>
         <script src="../../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.bundle.min.js"></script>
+        <script src="../demo-charts.js"></script>
 
         <link rel="stylesheet" href="../../node_modules/bootstrap/dist/css/bootstrap.min.css">
-
-        <style type="text/css">
-            body {
-                padding-top: 5rem;
-            }
-
-            .chart-canvas {
-                width: 50%;
-            }
-            p, div.alert {
-                width: 60%;
-            }
-
-            @media (max-width: 1023.99px) {
-                .chart-canvas {
-                    width: 75%;
-                }
-                p, div.alert {
-                    width: 80%;
-                }
-            }
-
-            @media (max-width: 767.99px) {
-                .chart-canvas {
-                    width: 100%;
-                }
-                p, div.alert {
-                    width: 100%;
-                }
-            }
-        </style>
+        <link rel="stylesheet" href="../demo-page.css">
 
         <script language="JavaScript">
 
@@ -56,21 +27,6 @@
 
             const FLOATS = ['a0', 'o', 's'];
 
-            const COLORS = {
-                black: 'rgb(0, 0, 0)',
-                red: 'rgb(255, 99, 132)',
-                orange: 'rgb(255, 159, 64)',
-                aqua: 'rgb(0, 255, 255)',
-                yellow: 'rgb(255, 205, 86)',
-                green: 'rgb(75, 192, 192)',
-                brown: 'rgb(165, 42, 42)',
-                blue: 'rgb(54, 162, 235)',
-                purple: 'rgb(153, 102, 255)',
-                grey: 'rgb(201, 203, 207)',
-                cadet: 'rgb(95, 158, 160)'
-            };
-            const COLOR_ARR = Object.values(COLORS);
-
             const STEPS_O_S = Object.freeze([0.0, 0.0025, 0.005, 0.0075, 0.01, 0.015, 0.02]);
             const STEPS_A0 = Object.freeze([0.0, 0.1, 0.25, 0.5, 1, 2, 3, 5, 10]);
 
@@ -79,6 +35,8 @@
                 Object.entries(PARAMS).forEach(function ([k, v]) {
                     $('#' + k).val(v);
                 });
+
+                DemoCharts.setDefaultUpdateFn(update);
 
                 $('input').on("change paste keyup", function () {
                     $this = $(this);
@@ -117,7 +75,7 @@
 
             function update(params = PARAMS, strict = false) {
                 params.z0 = round(1/params.k);
-                params.oP = strict & params.o < params.s ? Number.NaN : round(Math.min(Math.max(params.o, params.s), params.z0));
+                params.oP = strict && params.o < params.s ? Number.NaN : round(Math.min(Math.max(params.o, params.s), params.z0));
                 params.sP = round(Math.min(params.s, params.z0));
                 params.A = round((params.z0 - params.oP) / params.z0);
                 params.B = round(params.sP * params.A);
@@ -153,120 +111,52 @@
             }
 
             function draw_oH_chart(canvas_id, params) {
-                return plotDataAndCreateChart(canvas_id, params, {
+                return DemoCharts.plotDataAndCreateChart(canvas_id, params, {
                     ySteps: STEPS_O_S,
                     xSteps: STEPS_O_S,
-                    yName: 's',
-                    xName: 'o',
+                    yId: 's',
+                    xId: 'o',
                     title: 'Changing of result (H) in dependence to o and s (a0 = ' + params.a0 + ')',
-                    strict: true
+                    strict: true,
+                    expectedMax: Math.round(params.R / 100)
                 });
             }
 
             function draw_sH_chart(canvas_id, params) {
-                return plotDataAndCreateChart(canvas_id, params, {
+                return DemoCharts.plotDataAndCreateChart(canvas_id, params, {
                     ySteps: STEPS_O_S,
                     xSteps: STEPS_O_S,
-                    yName: 'o',
-                    xName: 's',
+                    yId: 'o',
+                    xId: 's',
                     title: 'Changing of result (H) in dependence to s and o (a0 = ' + params.a0 + ')',
-                    strict: true
+                    strict: true,
+                    expectedMax: Math.round(params.R / 100)
                 });
             }
 
             function draw_aoH_chart(canvas_id, params) {
-                return plotDataAndCreateChart(canvas_id, params, {
+                return DemoCharts.plotDataAndCreateChart(canvas_id, params, {
                     ySteps: STEPS_O_S,
                     xSteps: STEPS_A0,
-                    yName: 'o',
-                    xName: 'a0',
+                    yId: 'o',
+                    xId: 'a0',
                     title: 'Changing of result (H) in dependence to a0 and o (s = ' + params.s + ')',
-                    strict: true
+                    strict: true,
+                    expectedMax: Math.round(params.R / 100)
                 });
             }
 
             function draw_asH_chart(canvas_id, params) {
-                return plotDataAndCreateChart(canvas_id, params, {
+                return DemoCharts.plotDataAndCreateChart(canvas_id, params, {
                     ySteps: STEPS_O_S,
                     xSteps: STEPS_A0,
-                    yName: 's',
-                    xName: 'a0',
+                    yId: 's',
+                    xId: 'a0',
                     title: 'Changing of result (H) in dependence to a0 and s (o = ' + params.o + ')',
-                    strict: true
+                    strict: true,
+                    expectedMax: Math.round(params.R / 100)
                 });
             }
-
-            function plotDataAndCreateChart(canvasId, params,
-                    {ySteps = [], xSteps = [], yName = '', xName = '', title = '', strict = false} = {}) {
-                return createChart(canvasId, {
-                    title: title,
-                    xName: xName,
-                    labels: xSteps,
-                    expectedMax: Math.round(params.R / 100),
-                    datasets: createDatasetFromSteps(params, ySteps, xSteps, yName, (y,x) => {
-                        let r = {};
-                        r[yName] = y;
-                        r[xName] = x;
-                        return r;
-                    }, strict)
-                });
-            }
-
-            function createDatasetFromSteps(params, ySteps, xSteps, yLabel, f, strict = false) {
-                return ySteps.map(function (y, idx) {
-                    return {
-                        label: yLabel + ' = ' + y,
-                        fill: false,
-                        lineTension: 0.2,
-                        borderColor: COLOR_ARR[idx],
-                        backgroundColor: COLOR_ARR[idx],
-                        data: xSteps.map(function (x) {
-                            return update(Object.assign(Object.create(params), f(y, x)), strict).H;
-                        })
-                    };
-                });
-            }
-
-            function createChart(canvasId, {labels = [], datasets = [], xName = '', title = '', expectedMax = 1} = {}) {
-                let ctx = document.getElementById(canvasId).getContext('2d');
-                let max = Math.max.apply(null, datasets.map(d => d.data.filter(x => !Number.isNaN(x))).flat());
-                return Chart.Line(ctx, {
-                    data: {
-                        labels: labels,
-                        datasets: datasets
-                    },
-                    options: {
-                        title: {
-                            display: true,
-                            text: title
-                        },
-                        animation: {
-                            duration: 0
-                        },
-                        scales: {
-                            xAxes: [{
-                                display: true,
-                                scaleLabel: {
-                                    display: true,
-                                    labelString: xName
-                                }
-                            }],
-                            yAxes: [{
-                                display: true,
-                                scaleLabel: {
-                                    display: true,
-                                    labelString: 'H'
-                                },
-                                ticks : {
-                                    beginAtZero : true,
-                                    max: Math.max(max, expectedMax)
-                                }
-                            }]
-                        }
-                    }
-                });
-            }
-
             </script>
     </head>
     <body>

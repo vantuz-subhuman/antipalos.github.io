@@ -18,19 +18,17 @@
 
         <script language="JavaScript">
 
-            const PARAMS = {
-                slots: 100,
-                blocks: 90,
-                reward: 100,
-                y: 0.75,
-            };
-
             const STEPS_Y = Object.freeze([0.0, 0.25, 0.5, 0.75, 1, 1.5, 2, 5, 10]);
 
             $(function() {
 
                 DemoCharts.setDefaultUpdateFn(update);
-                DemoPage.bind(PARAMS, {
+                DemoPage.bind({
+                    slots: 100,
+                    blocks: 90,
+                    reward: 100,
+                    y: 0.75,
+                }, {
                     update: update,
                     field_dependencies: [
                         ['slots', 'blocks', (a,b) => a > b]
@@ -43,7 +41,7 @@
                 HashTabs.bind({scrollToTop: false});
             });
 
-            function update(params = PARAMS, strict = false) {
+            function update(params, strict = false) {
                 params.NP = Math.max(params.slots, 1);
                 params.A = strict && params.blocks > params.slots ? Number.NaN : params.blocks / params.NP;
                 params.B = Math.pow(params.A, params.y);

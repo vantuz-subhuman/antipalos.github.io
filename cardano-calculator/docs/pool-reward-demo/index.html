@@ -18,21 +18,19 @@
 
         <script language="JavaScript">
 
-            const PARAMS = {
-                k: 100,
-                a0: 0.25,
-                o: 0.01,
-                s: 0.0,
-                R: 100
-            };
-
             const STEPS_O_S = Object.freeze([0.0, 0.0025, 0.005, 0.0075, 0.01, 0.015, 0.02]);
             const STEPS_A0 = Object.freeze([0.0, 0.1, 0.25, 0.5, 1, 2, 3, 5, 10]);
 
             $(function() {
 
                 DemoCharts.setDefaultUpdateFn(update);
-                DemoPage.bind(PARAMS, {
+                DemoPage.bind({
+                    k: 100,
+                    a0: 0.25,
+                    o: 0.01,
+                    s: 0.0,
+                    R: 100
+                }, {
                     update: update,
                     field_dependencies: [
                         ['o', 's', (o,s) => o > s]
@@ -51,7 +49,7 @@
                 return Number(Math.round(val+'e11')+'e-11');
             }
 
-            function update(params = PARAMS, strict = false) {
+            function update(params, strict = false) {
                 params.z0 = round(1/params.k);
                 params.oP = strict && params.o < params.s ? Number.NaN : round(Math.min(Math.max(params.o, params.s), params.z0));
                 params.sP = round(Math.min(params.s, params.z0));

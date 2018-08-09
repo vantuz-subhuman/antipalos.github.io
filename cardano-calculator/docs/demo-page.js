@@ -20,11 +20,25 @@ function __DemoPageConstructor() {
         return result;
     }
 
-    this.bind = function (params, {update, updateView, field_dependencies = []} = {}) {
+    this.bind = function (params, {update, field_dependencies = [], charts = []} = {}) {
         Object.entries(params).forEach(function ([k, v]) {
             $('#' + k).val(v);
         });
         let field_dep_index = indexFieldDependencies(field_dependencies);
+        function updateView(params) {
+            $('span.result').each(function () {
+                $this = $(this);
+                $this.text(params[$this.attr('id')]);
+            });
+            if (charts) {
+                if (window.chart) {
+                    window.chart.forEach((c) => c.destroy());
+                }
+                window.chart = charts.map(function ([id, fn]) {
+                    return fn(id, params);
+                })
+            }
+        }
         $('input').on("change paste keyup", function () {
             $this = $(this);
             let id = $this.attr('id');

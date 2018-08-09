@@ -32,9 +32,12 @@
                 DemoCharts.setDefaultUpdateFn(update);
                 DemoPage.bind(PARAMS, {
                     update: update,
-                    updateView: updateView,
                     field_dependencies: [
                         ['slots', 'blocks', (a,b) => a > b]
+                    ],
+                    charts: [
+                        ['chart-nyN', draw_nyN_chart],
+                        ['chart-nNy', draw_nNy_chart]
                     ]
                 });
                 HashTabs.bind({scrollToTop: false});
@@ -47,26 +50,6 @@
                 params.H = Number((params.B * params.reward).toFixed(6));
                 params.Z = Number((100.0 - ((params.H * 100) / params.reward)).toFixed(2));
                 return params;
-            }
-
-            function updateView(params) {
-                $('span.result').each(function () {
-                    $this = $(this);
-                    $this.text(params[$this.attr('id')]);
-                });
-                drawCharts(params);
-            }
-
-            function drawCharts(params) {
-
-                if (window.chart) {
-                    window.chart.forEach((c) => c.destroy());
-                }
-
-                window.chart = [
-                    draw_nyN_chart('chart-nyN', params),
-                    draw_nNy_chart('chart-nNy', params),
-                ]
             }
 
             function draw_nyN_chart(canvas_id, params) {

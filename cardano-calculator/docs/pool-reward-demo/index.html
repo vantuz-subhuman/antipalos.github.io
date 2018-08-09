@@ -34,9 +34,14 @@
                 DemoCharts.setDefaultUpdateFn(update);
                 DemoPage.bind(PARAMS, {
                     update: update,
-                    updateView: updateView,
                     field_dependencies: [
                         ['o', 's', (o,s) => o > s]
+                    ],
+                    charts: [
+                        ['chart-s_H', draw_sH_chart],
+                        ['chart-o_H', draw_oH_chart],
+                        ['chart-a_o_H', draw_aoH_chart],
+                        ['chart-a_s_H', draw_asH_chart]
                     ]
                 });
                 HashTabs.bind({scrollToTop: false});
@@ -59,28 +64,6 @@
                 params.G = round(params.R / (1 + params.a0));
                 params.H = round(params.G * params.F);
                 return params;
-            }
-
-            function updateView(params) {
-                $('span.result').each(function () {
-                    $this = $(this);
-                    $this.text(params[$this.attr('id')]);
-                });
-                drawCharts(params);
-            }
-
-            function drawCharts(params) {
-
-                if (window.chart) {
-                    window.chart.forEach((c) => c.destroy());
-                }
-
-                window.chart = [
-                    draw_sH_chart('chart-s_H', params),
-                    draw_oH_chart('chart-o_H', params),
-                    draw_aoH_chart('chart-a_o_H', params),
-                    draw_asH_chart('chart-a_s_H', params),
-                ]
             }
 
             function draw_oH_chart(canvas_id, params) {

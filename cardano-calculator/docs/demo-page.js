@@ -20,12 +20,21 @@ function __DemoPageConstructor() {
         return result;
     }
 
-    this.bind = function (params, {update, field_dependencies = [], charts = []} = {}) {
+    let _params = null;
+    let _update = null;
+    let _updateView = null;
+
+    this.bind = function (params, {update, updateView, field_dependencies = [], charts = []} = {}) {
+        _params = params;
+        _update = update;
         Object.entries(params).forEach(function ([k, v]) {
             $('#' + k).val(v);
         });
         let field_dep_index = indexFieldDependencies(field_dependencies);
-        function updateView(params) {
+        _updateView = function(params) {
+            if (updateView) {
+                updateView(params);
+            }
             $('span.result').each(function () {
                 $this = $(this);
                 $this.text(params[$this.attr('id')]);
@@ -38,7 +47,7 @@ function __DemoPageConstructor() {
                     return fn(id, params);
                 })
             }
-        }
+        };
         $('input').on("change paste keyup", function () {
             $this = $(this);
             let id = $this.attr('id');
@@ -65,12 +74,26 @@ function __DemoPageConstructor() {
             } else {
                 params[id] = val;
             }
-            update(params);
-            updateView(params);
+            _update(params);
+            _updateView(params);
         });
-        update(params);
-        updateView(params);
-    }
+        _update(params);
+        _updateView(params);
+    };
+
+    this.updatePage = function () {
+        _update(_params);
+        _updateView(_params);
+    };
+
+    this.updateView = function () {
+        _updateView(_params);
+    };
+
+    this.setParam = function(id, val) {
+        _params[id] = val;
+        $('#' + id).val(val);
+    };
 }
 
 const DemoPage = Object.freeze(new __DemoPageConstructor());

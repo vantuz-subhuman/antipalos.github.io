@@ -1,5 +1,11 @@
 function UtilsConstructor() {
 
+    function _round(val) {
+        return Number(Math.round(val+'e11')+'e-11');
+    }
+
+    this.round = _round;
+
     this.escapeRegExp = function(str) {
         // noinspection RegExpRedundantEscape
         return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
@@ -28,6 +34,10 @@ function UtilsConstructor() {
         return [].concat.apply([], this);
     };
 
+    Array.prototype.sum = function() {
+        return this.reduce((a,b) => a + b, 0);
+    };
+
     String.prototype.contains = function (x) {
         return this.indexOf(x) > -1;
     };
@@ -38,6 +48,14 @@ function UtilsConstructor() {
 
     Number.prototype.betweex = function (a,b) {
         return this > a && this < b;
+    };
+
+    Number.prototype.roundInt = function () {
+        return Math.round(this);
+    };
+
+    Number.prototype.roundFloat = function () {
+        return _round(this);
     };
 
     this.repeated = function (f, {interval = 300, firstDelay = false, minInterval = 100, intervalStep = 50, counterStep = 10} = {}) {

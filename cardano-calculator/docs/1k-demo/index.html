@@ -1,0 +1,450 @@
+<html>
+    <head>
+
+        <title>
+            Cardano Pool Performance Demo
+        </title>
+
+        <script src="../../assets/js/vendor/jquery/jquery.min.js"></script>
+        <script src="../../assets/js/hashtabs.js"></script>
+        <script src="../../assets/js/utils.js"></script>
+        <script src="../../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.bundle.min.js"></script>
+        <script src="../demo-charts.js"></script>
+        <script src="../demo-page.js"></script>
+
+        <link rel="stylesheet" href="../../node_modules/bootstrap/dist/css/bootstrap.min.css">
+        <link rel="stylesheet" href="../demo-page.css">
+
+        <script language="JavaScript">
+
+            const POOLS = Array.apply(null, Array(10));
+            const PARAMS = {
+                k: 10,
+                R: 1000000,
+                selected: [-1, -1],
+                stakeShift: 100
+            };
+
+            $(function() {
+                resetToRandom();
+                DemoCharts.setDefaultUpdateFn(update);
+                DemoPage.bind(PARAMS, {
+                    update: update,
+                    updateView: updateView,
+                    field_dependencies: [
+                        ['slots', 'blocks', (a,b) => a > b]
+                    ],
+                    charts: [
+                        ['chart-1k-pools', draw_1k_chart],
+                        ['chart-1k-rewards', draw_1k_rewards]
+                    ]
+                });
+            });
+
+            function updateView(params) {
+                let stakeMoveLabel = createStakeMoveLabel(params);
+                $('#stake-move').text(stakeMoveLabel);
+                $('#stake-move-btn').attr('disabled', !stakeMoveLabel);
+            }
+
+            function createStakeMoveLabel(params) {
+                let s1 = params.selected[0] + 1;
+                let s2 = params.selected[1] + 1;
+                let l1 = s1 ? ' to ' + s1 : '';
+                let l2 = s2 ? ' from ' + s2 : '';
+                return l2 + l1;
+            }
+
+            function moveStake() {
+                let to = PARAMS.selected[0];
+                let from = PARAMS.selected[1];
+                if (from > -1) {
+                    POOLS[from] = Math.max(POOLS[from] - PARAMS.stakeShift, 0)
+                }
+                if (to > -1) {
+                    POOLS[to] += PARAMS.stakeShift;
+                }
+            }
+
+            function totalReset() {
+                DemoPage.setParam('k', 10);
+                DemoPage.setParam('R', 1000000);
+                numberOfPoolsTo(10);
+                resetToRandom();
+            }
+
+            function resetToRandom() {
+                let pow = Math.pow(POOLS.length,2);
+                let pow5 = 5 * pow;
+                let pow7 = 7 * pow;
+                POOLS.forEach(function (v, i) {
+                    let r1 = Math.random();
+                    let r2 = Math.random();
+                    POOLS[i] = (r1 * (r2 > 0.8 ? pow7 : pow5)).roundInt() + (r2 < 0.2 ? pow : pow5);
+                });
+            }
+
+            function allToZero() {
+                POOLS.forEach((v,i) => {POOLS[i] = 0});
+            }
+
+            function allToMax() {
+                POOLS.forEach((v,i) => {POOLS[i] = 1000});
+            }
+
+            function numberOfPoolsTo(n) {
+                if (POOLS.length > n) {
+                    POOLS.splice(n);
+                } else {
+                    while (POOLS.length < n) {
+                        POOLS.push(0);
+                    }
+                }
+            }
+
+            function clk(f, args) {
+                f.apply(this, args);
+                DemoPage.updatePage();
+            }
+
+            function update(params, strict = false) {
+                params.z0 = (1/Math.max(params.k)).roundFloat();
+                params.T = POOLS.sum();
+                params.Tc = Math.floor(params.T * params.z0);
+                params.Rc = Math.floor(params.R * params.z0);
+                params.PS = POOLS.map(v => v / params.T);
+                params.PR = params.PS.map(v => (params.R * v).toFixed(2));
+                params.PRc = params.PR.map(v => Math.min(v, params.Rc));
+                params.PRl = params.PR.map(v => Math.max(v - params.Rc, 0));
+                params.Rp = params.PRc.sum().toFixed(2);
+                params.Rl = params.PRl.sum().toFixed(2);
+                params.Rpp = ((params.Rp * 100) / params.R).toFixed(2);
+                params.Rlp = ((params.Rl * 100) / params.R).toFixed(2);
+                return params;
+            }
+
+            function draw_1k_chart(canvas_id, params) {
+                let expectedMax = params.Tc * 2;
+                return DemoCharts.createChart(canvas_id, {
+                    type: 'bar',
+                    title: 'Pool stake shares (Limit = ' + params.Tc + ')',
+                    labels: [...POOLS.keys()].map(function (v) {
+                        let r = v + 1;
+                        if (params.selected[0] === v) {
+                            return '[' + r + ']';
+                        }
+                        if (params.selected[1] === v) {
+                            return '<' + r + '>';
+                        }
+                        return r;
+                    }),
+                    xName: 'Pools',
+                    expectedMax: expectedMax > 0 ? expectedMax : 1,
+                    stacked: true,
+                    tooltipsMode: 'x',
+                    onClick: function(e) {
+                        let idx = e && e.length > 0 ? e[0]._index : -1;
+                        if (PARAMS.selected[0] === idx) {
+                            PARAMS.selected[1] = idx;
+                            PARAMS.selected[0] = -1;
+                        } else if (PARAMS.selected[1] === idx) {
+                            PARAMS.selected[0] = idx;
+                            PARAMS.selected[1] = -1;
+                        } else {
+                            PARAMS.selected[0] = idx
+                        }
+                        setTimeout(DemoPage.updateView, 0);
+                    },
+                    datasets: [
+                        {
+                            label: 'Stake under limit',
+                            backgroundColor: DemoCharts.getColors().blue,
+                            data: POOLS.map(v => Math.min(v,params.Tc))
+                        },
+                        {
+                            label: 'Stake over limit',
+                            backgroundColor: DemoCharts.getColors().red,
+                            data: POOLS.map(v => Math.max(v - params.Tc, 0))
+                        },
+                        {
+                            type: 'line',
+                            label: 'Total pool stake',
+                            borderColor: DemoCharts.getColors().black,
+                            borderWidth: 1,
+                            fill: false,
+                            pointRadius: 0,
+                            data: POOLS
+                        },
+                    ]
+                });
+            }
+
+            function draw_1k_rewards(canvas_id, params) {
+                return DemoCharts.createChart(canvas_id, {
+                    labels: [...POOLS.keys()].map(v => v + 1),
+                    xName: 'Pools',
+                    expectedMax: params.Rc * 2,
+                    datasets: [
+                        {
+                            label: 'Actual pool reward',
+                            fill: false,
+                            backgroundColor: DemoCharts.getColors().orange,
+                            borderColor: DemoCharts.getColors().orange,
+                            data: params.PRc
+                        },
+                        {
+                            label: 'Ideal reward',
+                            fill: false,
+                            backgroundColor: DemoCharts.getColors().dark_grey,
+                            borderColor: DemoCharts.getColors().dark_grey,
+                            data: params.PR
+                        },
+                        {
+                            label: 'Leftover reward',
+                            backgroundColor: DemoCharts.getColors().grey,
+                            borderColor: DemoCharts.getColors().grey,
+                            data: params.PR.map(v => Math.max(v - params.Rc, 0))
+                        }
+                    ]
+                });
+            }
+            </script>
+    </head>
+    <body>
+
+        <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top border-bottom">
+            <span class="navbar-brand"><a href="../..">Cardano Calculator</a> / <a href="..">Docs</a> / Pool saturation demo (<code>1/k</code>)</span>
+        </nav>
+
+        <div class="container-fluid">
+
+            <div class="col-5">
+                <img src="1k.png" width="100%">
+                <br/>
+                <br/>
+            </div>
+
+            <h3>Parameters</h3>
+            <div class="container">
+                <div class="row">
+                    <label class="col-sm form-group form-control">
+                        <span>k: </span><input id="k" type="number" min="1" step="1"><span class="text-nowrap"> (desired number of pools)</span>
+                    </label>
+                    <label class="col-sm form-group form-control">
+                        <span>R: </span><input id="R" type="number" min="1" step="1"><span class="text-nowrap"> (available reward)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="tab-content">
+
+                <div id="formula" class="tab-pane active">
+
+                    <h3 class="pt-2">Formula break-down</h3>
+
+                    <div class="row">
+                        <div class="col border">
+                            <span class="text-nowrap">z0 [1/k] = <span class="result" id="z0">?</span> (pool share cap)</span><br/>
+                            <br/>
+                            <span class="text-nowrap">T = <span class="result" id="T">?</span> (total stake)</span><br/>
+                            <span class="text-nowrap">T' [T * z0] = <span class="result" id="Tc">?</span> (stake cap per pool)</span><br/>
+                            <br/>
+                        </div>
+                        <div class="col border">
+                            <span class="text-nowrap">R' [R * z0] = <span class="result" id="Rc">?</span> (reward cap per pool)</span><br/>
+                            <br/>
+                            <span class="text-nowrap">R+ = <span class="result" id="Rp">?</span> (<span class="result" id="Rpp">?</span>%) (total received reward)</span><br/>
+                            <span class="text-nowrap">R- = <span class="result" id="Rl">?</span> (<span class="result" id="Rlp">?</span>%) (total leftover reward)</span><br/>
+                            <br/>
+                        </div>
+                    </div>
+
+                    <div class="row d-flex justify-content-start">
+                        <div class="chart-canvas border">
+                            <canvas id="chart-1k-pools"></canvas>
+                        </div>
+                        <div class="chart-canvas border">
+                            <canvas id="chart-1k-rewards"></canvas>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <button type="button" class="btn btn-sm btn-info" onclick="clk(totalReset);">Total reset</button>
+                            <button type="button" class="btn btn-sm btn-info" onclick="clk(resetToRandom);">Reset stake</button>
+                            <button type="button" class="btn btn-sm btn-info" onclick="clk(allToZero);">All to zero</button>
+                            <button type="button" class="btn btn-sm btn-info" onclick="clk(allToMax);">All to max</button>
+                            <button type="button" class="btn btn-sm btn-info" onclick="clk(numberOfPoolsTo, [POOLS.length + 1]);">Add pool</button>
+                            <button type="button" class="btn btn-sm btn-info" onclick="clk(numberOfPoolsTo, [POOLS.length - 1]);">Remove pool</button>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12" role="group">
+                            <label>
+                                Move stake<span id="stake-move"></span>:
+                                <input id="stakeShift" class="col-form-label-sm" style="width: 10ch;" type="number" min="1" step="1" />
+                            </label>
+                            <button id="stake-move-btn" type="button" class="btn btn-sm btn-info" onclick="clk(moveStake);" disabled="disabled">Move</button>
+                        </div>
+                    </div>
+
+                    <h3 class="pt-2">Explanation</h3>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <p>
+                                Cardano delegation model includes a mechanism to punish nodes for imperfect performance.
+                                More specifically, if a node (or pool) wins a certain amount of slots <code>N</code>
+                                for an epoch, but misses some of them and creates only <code>n &lt; N</code> blocks.
+                                Then this node will be punished by reducing its total reward (so all the stakeholders
+                                who delegated to the pool are losing profits) and by reducing its rating for future
+                                epoch selections.
+                            </p>
+                            <p>
+                                This demo-page is for the formula that is used to determine the actual reward of a
+                                pool, considering the punishment. This formula is used <b>after</b> <a href="../pool-reward-demo">
+                                the main pool reward formula</a>. This means that at first the "raw" reward is calculated
+                                by the main formula, and then this punishment formula is applied to see if the raw
+                                reward should be reduced.
+                            </p>
+
+                            <h4>Parameters description</h4>
+                            <p>
+                                "Number of slots owned" <code>(N)</code> - how many slots did the node won at the beginning
+                                of the epoch. These slots are considered to be "owned" by this node, and the node is
+                                supposed to create the same amount of blocks. This number cannot be smaller than
+                                number of created blocks <code>(n)</code>.
+                            </p>
+                            <p>
+                                "Number of created blocks" <code>(n)</code> - how much actual blocks were created
+                                by the node. This number cannot be larger than number of owned slots <code>(N)</code>.
+                            </p>
+                            <p>
+                                "Raw pool rewards" <code>(f(s,o))</code> - the raw reward, earned by this pool
+                                based on its stake. You can use <a href="../pool-reward-demo">specific separate
+                                demo page</a> to see how this works.
+                            </p>
+                            <p>
+                                "penalty severity" <code>(y)</code> - a system constant. This parameter determines,
+                                how severely the node will be punished depending on how many slots are missed.
+                                You can see different values of this parameter being plotted on the chart.
+                            </p>
+
+                            <div class="border-top pt-2">
+                                <h5>Sources</h5>
+                                <p>
+                                    This formula is taken from the official reward scheme paper:
+                                    <a href="..">Calculator Documentation</a>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="charts" class="tab-pane">
+                    <h3 class="pt-2">Charts</h3>
+
+                    <h3 class="pt-2">Explanation</h3>
+                    <div class="row">
+                        <div class="col-12">
+                            <p>
+                                These two charts show how resulting pool reward is affected by changing
+                                <code>h</code> and <code>y</code> values. You can try changing the <code>y</code>
+                                value and see how charts respond.
+                            </p>
+
+                            <h4>Different <code>y</code> as <code>n</code> grows (left or top chart)</h4>
+                            <p>
+                                On this chart you can see different values of <code>y</code> being plotted
+                                at different number of blocks <code>(n)</code> being created. Each line represents
+                                a different system, where <b>constant</b> <code>y</code> is selected at different value.
+                                You can change  the number of slots <code>(N)</code> value in the input form and see
+                                how chart changes.
+                            </p>
+                            <p>
+                                Chart clearly shows that at <code>n=0</code> any value of <code>y</code> gives
+                                the resulting reward of 0 (except the very special case of <code>y=0</code>,
+                                which means that no punishment will be applied at all). This means that no matter
+                                what is the punishment severity - it is impossible to get a reward for making no
+                                blocks at all.
+                            </p>
+                            <p>
+                                Next you can clearly see a straight middle line that goes diagonally between bottom-left
+                                and top-right corners. This line represents value of <code>y=1</code> when punishment
+                                is perfectly proportional to the performance - if a node has created 50% of it's blocks,
+                                then it will receive 50% of raw rewards, etc.
+                            </p>
+                            <p>
+                                All lines <b>above</b> the middle-line represent values of <code>y &lt; 1</code>.
+                                You can see how with these values node would receive lower punishment at higher
+                                number of created blocks (few missed blocks), but then as number of created blocks
+                                goes down - punishment gets more severe, resulting in the same zero value.
+                            </p>
+                            <p>
+                                On the other side, all lines <b>under</b> the middle-line represent values of
+                                <code>y &gt; 1</code> and bend in opposite direction. This means that the larger
+                                value of <code>y</code> gets - the more severely punished first missed slots become.
+                                You can see how at <code>y=10</code> first 5 missed blocks <code>(n=95)</code>
+                                already gets the node only <code>~60%</code> of the raw reward.
+                            </p>
+
+                            <h4>Different <code>N</code> as <code>n</code> grows (right or bottom chart)</h4>
+                            <p>
+                                On this chart each line represents a node\pool with different amount of slots
+                                they have won for the passed epoch, and x-axis represents how many blocks they
+                                have actually created. So leftmost line represents a pool that have won 20 slots
+                                (or 20% of slots, if you have <code>N&gt;100</code>). You cann see 5 points on this line,
+                                representing its reward if has produced: <code>0</code>, <code>N/4</code>, <code>N/2</code>,
+                                <code>3N/4</code>, or <code>N</code> blocks. All other lines represent similar steps
+                                for nodes with larger amount of owned slots.
+                            </p>
+                            <p>
+                                If you change the <code>y</code> value in the input form, you will see the chart respond.
+                                Doing so you can clearly notice the "middle-line" of rewards, consisting of points
+                                representing 50% of blocks in the middle of each line (this middle-line falls exactly
+                                at 50% reward at <code>y=1</code>). So you can move <code>y</code> value around
+                                and see, how nodes of different size would be relatively compensated if they miss
+                                a quoter, or a half of its slots.
+                            </p>
+
+                            <h4>Conclusions</h4>
+                            <p>
+                                Selecting right <code>y</code> value is a complex task, because it determines the
+                                "forgiveness" of the system. With smaller values of <code>y</code> nodes can
+                                easier miss <b>few</b> blocks and not lose that much profits, but again as number
+                                of created blocks goes down - mild <code>y</code> appears to be less and less fair,
+                                because even by missing 50% of slots nodes still receive >50% of rewards.
+                            </p>
+                            <p>
+                                On the other hand, larger values of <code>y</code> impose more severe punishment
+                                for nodes as they miss more blocks, but at the same time it may cause the punishment
+                                to be "too severe" for small nodes that miss few blocks.
+                            </p>
+                            <p>
+                                Right value is for the IOHK to select, depending on what kind of behaviour they want
+                                to model for the system.
+                            </p>
+                        </div>
+                </div>
+            </div>
+
+            <br/>
+            <br/>
+
+            <div class="row">
+                <div class="col-md-12">
+                    <div id="footer" class="text-center">
+                        GitHub <a target="_blank" href="https://github.com/antipalos/antipalos.github.io/issues?q=is%3Aopen+is%3Aissue+project%3Aantipalos%2Fantipalos.github.io%2F1">@Antipalos</a>
+                        | Dev: <a target="_blank" href="https://twitter.com/vsubhuman">@vsubhuman</a>
+                        | Forum: <a target="_blank" href="https://forum.cardano.org/t/cardano-staking-profits-calculator/12314">forum.cardano.org</a>
+                        | Chat: <a target="_blank" href="https://t.me/CardanoGeneral">t.me/CardanoGeneral</a>
+                        | Reddit: <a target="_blank" href="https://www.reddit.com/r/cardano/comments/8m0ji3/cardano_staking_profits_calculator/">r/Cardano</a>
+                        | Donate: <a target="_blank" href="https://cardanowiki.info/wiki/Funding">CardanoWiki</a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </body>
+</html>

@@ -45,11 +45,8 @@
                 HashTabs.bind({scrollToTop: false});
             });
 
-            function round(val) {
-                return Number(Math.round(val+'e11')+'e-11');
-            }
-
             function update(params, strict = false) {
+                let round = Utils.round;
                 params.z0 = round(1/params.k);
                 params.oP = strict && params.o < params.s ? Number.NaN : round(Math.min(Math.max(params.o, params.s), params.z0));
                 params.sP = round(Math.min(params.s, params.z0));

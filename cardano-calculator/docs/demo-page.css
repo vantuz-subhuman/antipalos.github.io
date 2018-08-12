@@ -26,3 +26,8 @@ p, div.alert {
         width: 100%;
     }
 }
+
+.tip {
+    font-size: 0.7rem;
+    color: #777777;
+}

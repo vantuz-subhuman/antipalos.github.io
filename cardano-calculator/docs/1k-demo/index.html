@@ -23,7 +23,8 @@
                 k: 10,
                 R: 1000000,
                 selected: [-1, -1],
-                stakeShift: 100
+                stakeShift: 100,
+                lastPools: -1
             };
 
             $(function() {
@@ -40,12 +41,30 @@
                         ['chart-1k-rewards', draw_1k_rewards]
                     ]
                 });
+                $('.stake-move-selector').change(function (e) {
+                    PARAMS.selected[parseInt($(this).attr('idx'))] = parseInt($(this).val());
+                    DemoPage.updateView();
+                });
             });
 
             function updateView(params) {
                 let stakeMoveLabel = createStakeMoveLabel(params);
                 $('#stake-move').text(stakeMoveLabel);
                 $('#stake-move-btn').attr('disabled', !stakeMoveLabel);
+                let $selectorFrom = $('#stake-move-from-selector');
+                let $selectorTo = $('#stake-move-to-selector');
+                if (params.lastPools !== POOLS.length) {
+                    $selectorFrom.empty();
+                    $selectorTo.empty();
+                    ['None'].concat([...POOLS.keys()].map(x => x + 1)).forEach((v, i) => {
+                        let el = '<option value="' + (i - 1) + '">' + v + '</option>';
+                        $selectorFrom.append($(el));
+                        $selectorTo.append($(el));
+                    });
+                    params.lastPools = POOLS.length;
+                }
+                $selectorTo.val(params.selected[0]);
+                $selectorFrom.val(params.selected[1]);
             }
 
             function createStakeMoveLabel(params) {
@@ -185,6 +204,7 @@
                     labels: [...POOLS.keys()].map(v => v + 1),
                     xName: 'Pools',
                     expectedMax: params.Rc * 2,
+                    tooltipsMode: 'x',
                     datasets: [
                         {
                             label: 'Actual pool reward',
@@ -280,11 +300,16 @@
                     </div>
                     <div class="row mt-2">
                         <div class="col-12" role="group">
-                            <label>
-                                Move stake<span id="stake-move"></span>:
-                                <input id="stakeShift" class="col-form-label-sm" style="width: 10ch;" type="number" min="1" step="1" />
-                            </label>
-                            <button id="stake-move-btn" type="button" class="btn btn-sm btn-info" onclick="clk(moveStake);" disabled="disabled">Move</button>
+                            <div>
+                                <label>
+                                    Move stake from <select id="stake-move-from-selector" idx="1" class="form-control-sm stake-move-selector">
+                                    </select> to <select id="stake-move-to-selector" idx="0" class="form-control-sm stake-move-selector">
+                                    </select> :
+                                    <input id="stakeShift" class="col-form-label-sm" style="width: 10ch;" type="number" min="1" step="1" />
+                                </label>
+                                <button id="stake-move-btn" type="button" class="btn btn-sm btn-info" onclick="clk(moveStake);" disabled="disabled">Move</button>
+                            </div>
+                            <span class="tip">(You can select pools by clicking on their columns: 1 click - move to, 2 clicks - move from)</span>
                         </div>
                     </div>
 

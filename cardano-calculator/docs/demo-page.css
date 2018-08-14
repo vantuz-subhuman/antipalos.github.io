@@ -31,3 +31,9 @@ p, div.alert {
     font-size: 0.7rem;
     color: #777777;
 }
+
+code {
+    background: #f5f5f5;
+    padding: 2px;
+    border-radius: 4px;
+}

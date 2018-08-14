@@ -24,6 +24,7 @@
                 R: 1000000,
                 selected: [-1, -1],
                 stakeShift: 100,
+                userStake: 200,
                 lastPools: -1
             };
 
@@ -201,6 +202,7 @@
 
             function draw_1k_rewards(canvas_id, params) {
                 return DemoCharts.createChart(canvas_id, {
+                    title: 'Pool rewards (Limit = ' + params.Rc + ')',
                     labels: [...POOLS.keys()].map(v => v + 1),
                     xName: 'Pools',
                     expectedMax: params.Rc * 2,
@@ -214,14 +216,24 @@
                             data: params.PRc
                         },
                         {
-                            label: 'Ideal reward',
+                            label: 'Ideal pool reward',
                             fill: false,
                             backgroundColor: DemoCharts.getColors().dark_grey,
                             borderColor: DemoCharts.getColors().dark_grey,
                             data: params.PR
                         },
                         {
-                            label: 'Leftover reward',
+                            label: 'User reward',
+                            fill: false,
+                            backgroundColor: DemoCharts.getColors().purple,
+                            borderColor: DemoCharts.getColors().purple,
+                            data: params.PRc.map(function (v,i) {
+                                let share = Math.min(params.userStake, POOLS[i])/POOLS[i];
+                                return v * share;
+                            })
+                        },
+                        {
+                            label: 'Missed reward',
                             backgroundColor: DemoCharts.getColors().grey,
                             borderColor: DemoCharts.getColors().grey,
                             data: params.PR.map(v => Math.max(v - params.Rc, 0))
@@ -289,13 +301,21 @@
                         </div>
                     </div>
                     <div class="row mt-2">
-                        <div class="col-12">
-                            <button type="button" class="btn btn-sm btn-info" onclick="clk(totalReset);">Total reset</button>
-                            <button type="button" class="btn btn-sm btn-info" onclick="clk(resetToRandom);">Reset stake</button>
-                            <button type="button" class="btn btn-sm btn-info" onclick="clk(allToZero);">All to zero</button>
-                            <button type="button" class="btn btn-sm btn-info" onclick="clk(allToMax);">All to max</button>
-                            <button type="button" class="btn btn-sm btn-info" onclick="clk(numberOfPoolsTo, [POOLS.length + 1]);">Add pool</button>
-                            <button type="button" class="btn btn-sm btn-info" onclick="clk(numberOfPoolsTo, [POOLS.length - 1]);">Remove pool</button>
+                        <div class="col-12 d-flex justify-content-between">
+                            <div>
+                                <button type="button" class="btn btn-sm btn-info" onclick="clk(totalReset);">Total reset</button>
+                                <button type="button" class="btn btn-sm btn-info" onclick="clk(resetToRandom);">Reset stake</button>
+                                <button type="button" class="btn btn-sm btn-info" onclick="clk(allToZero);">All to zero</button>
+                                <button type="button" class="btn btn-sm btn-info" onclick="clk(allToMax);">All to max</button>
+                                <button type="button" class="btn btn-sm btn-info" onclick="clk(numberOfPoolsTo, [POOLS.length + 1]);">Add pool</button>
+                                <button type="button" class="btn btn-sm btn-info" onclick="clk(numberOfPoolsTo, [POOLS.length - 1]);">Remove pool</button>
+                            </div>
+                            <div>
+                                <label>
+                                    User stake:
+                                    <input id="userStake" class="col-form-label-sm" style="width: 10ch;" type="number" min="1" step="1" />
+                                </label>
+                            </div>
                         </div>
                     </div>
                     <div class="row mt-2">
@@ -318,19 +338,30 @@
                     <div class="row">
                         <div class="col-12">
                             <p>
-                                Cardano delegation model includes a mechanism to punish nodes for imperfect performance.
-                                More specifically, if a node (or pool) wins a certain amount of slots <code>N</code>
-                                for an epoch, but misses some of them and creates only <code>n &lt; N</code> blocks.
-                                Then this node will be punished by reducing its total reward (so all the stakeholders
-                                who delegated to the pool are losing profits) and by reducing its rating for future
-                                epoch selections.
+                                Cardano staking model includes a mechanism to ensure a <b>minimum</b> "desired" number
+                                of nodes present in the system. The system is system and utilizes the <code>1/k</code>
+                                formula where <code>k</code> is equal to the desired number of pools.
                             </p>
                             <p>
-                                This demo-page is for the formula that is used to determine the actual reward of a
-                                pool, considering the punishment. This formula is used <b>after</b> <a href="../pool-reward-demo">
-                                the main pool reward formula</a>. This means that at first the "raw" reward is calculated
-                                by the main formula, and then this punishment formula is applied to see if the raw
-                                reward should be reduced.
+                                This formula gives the <b>maximum</b> possible stake share that will be used
+                                to calculate reward for any single node. For example (simplified), if a pool
+                                controls 0.5% of all stake - then his share is <code>0.005</code>,
+                                and he (ideally) should be eligible for the same share of rewards <code>(R)</code>
+                                (i.e. - <code>reward = R * 0.005</code>), and if a node owns 1% (<code>0.01</code> share)
+                                then it should be eligible for 1% of reward, and if it controls 2% of stake - then for
+                                2% of rewards. But, if we have <code>k=100</code> then the maximum possible reward
+                                share is <code>1/k = 0.01</code> which is 1%. And this means that whatever share,
+                                larger than 1%, a node may control - it will <b>never</b> get more than 1% of rewards.
+                            </p>
+                            <p>
+                                This mechanism ensures that there's no financial profit for any single node to control
+                                an unproportionally large share of all stake. It is specifically important for the system
+                                of native staking-pools that Cardano will have. A single pool can easily grow out of
+                                proportion because of users irrationality that delegate everything to the most popular
+                                pool out there (e.g. - Bitcoin mining pools). <code>1/k</code> formula ensures that
+                                if users delegate to a pool that grows out of proportion over the limit - they start
+                                losing profits, and the only solution to get those profits back is to move the stake
+                                to smaller pools that have not yet reach their limit.
                             </p>
 
                             <h4>Parameters description</h4>
@@ -364,92 +395,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div id="charts" class="tab-pane">
-                    <h3 class="pt-2">Charts</h3>
-
-                    <h3 class="pt-2">Explanation</h3>
-                    <div class="row">
-                        <div class="col-12">
-                            <p>
-                                These two charts show how resulting pool reward is affected by changing
-                                <code>h</code> and <code>y</code> values. You can try changing the <code>y</code>
-                                value and see how charts respond.
-                            </p>
-
-                            <h4>Different <code>y</code> as <code>n</code> grows (left or top chart)</h4>
-                            <p>
-                                On this chart you can see different values of <code>y</code> being plotted
-                                at different number of blocks <code>(n)</code> being created. Each line represents
-                                a different system, where <b>constant</b> <code>y</code> is selected at different value.
-                                You can change  the number of slots <code>(N)</code> value in the input form and see
-                                how chart changes.
-                            </p>
-                            <p>
-                                Chart clearly shows that at <code>n=0</code> any value of <code>y</code> gives
-                                the resulting reward of 0 (except the very special case of <code>y=0</code>,
-                                which means that no punishment will be applied at all). This means that no matter
-                                what is the punishment severity - it is impossible to get a reward for making no
-                                blocks at all.
-                            </p>
-                            <p>
-                                Next you can clearly see a straight middle line that goes diagonally between bottom-left
-                                and top-right corners. This line represents value of <code>y=1</code> when punishment
-                                is perfectly proportional to the performance - if a node has created 50% of it's blocks,
-                                then it will receive 50% of raw rewards, etc.
-                            </p>
-                            <p>
-                                All lines <b>above</b> the middle-line represent values of <code>y &lt; 1</code>.
-                                You can see how with these values node would receive lower punishment at higher
-                                number of created blocks (few missed blocks), but then as number of created blocks
-                                goes down - punishment gets more severe, resulting in the same zero value.
-                            </p>
-                            <p>
-                                On the other side, all lines <b>under</b> the middle-line represent values of
-                                <code>y &gt; 1</code> and bend in opposite direction. This means that the larger
-                                value of <code>y</code> gets - the more severely punished first missed slots become.
-                                You can see how at <code>y=10</code> first 5 missed blocks <code>(n=95)</code>
-                                already gets the node only <code>~60%</code> of the raw reward.
-                            </p>
-
-                            <h4>Different <code>N</code> as <code>n</code> grows (right or bottom chart)</h4>
-                            <p>
-                                On this chart each line represents a node\pool with different amount of slots
-                                they have won for the passed epoch, and x-axis represents how many blocks they
-                                have actually created. So leftmost line represents a pool that have won 20 slots
-                                (or 20% of slots, if you have <code>N&gt;100</code>). You cann see 5 points on this line,
-                                representing its reward if has produced: <code>0</code>, <code>N/4</code>, <code>N/2</code>,
-                                <code>3N/4</code>, or <code>N</code> blocks. All other lines represent similar steps
-                                for nodes with larger amount of owned slots.
-                            </p>
-                            <p>
-                                If you change the <code>y</code> value in the input form, you will see the chart respond.
-                                Doing so you can clearly notice the "middle-line" of rewards, consisting of points
-                                representing 50% of blocks in the middle of each line (this middle-line falls exactly
-                                at 50% reward at <code>y=1</code>). So you can move <code>y</code> value around
-                                and see, how nodes of different size would be relatively compensated if they miss
-                                a quoter, or a half of its slots.
-                            </p>
-
-                            <h4>Conclusions</h4>
-                            <p>
-                                Selecting right <code>y</code> value is a complex task, because it determines the
-                                "forgiveness" of the system. With smaller values of <code>y</code> nodes can
-                                easier miss <b>few</b> blocks and not lose that much profits, but again as number
-                                of created blocks goes down - mild <code>y</code> appears to be less and less fair,
-                                because even by missing 50% of slots nodes still receive >50% of rewards.
-                            </p>
-                            <p>
-                                On the other hand, larger values of <code>y</code> impose more severe punishment
-                                for nodes as they miss more blocks, but at the same time it may cause the punishment
-                                to be "too severe" for small nodes that miss few blocks.
-                            </p>
-                            <p>
-                                Right value is for the IOHK to select, depending on what kind of behaviour they want
-                                to model for the system.
-                            </p>
-                        </div>
                 </div>
             </div>
 

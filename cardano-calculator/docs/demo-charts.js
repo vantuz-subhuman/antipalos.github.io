@@ -28,7 +28,7 @@ function __ChartsConstructor() {
 
     this.plotDataAndCreateChart = function(canvasId, params,
             {ySteps = [], xSteps = [], yId = '', xId = '', yName = yId, xName = xId, title = '', strict = false,
-             updateFn = __defaultUpdateFn, expectedMax, middleLineTitle, type} = {}) {
+             updateFn = __defaultUpdateFn, expectedMax, middleLineTitle, type, pointRadius} = {}) {
         if (!updateFn) {
             throw "Update function is required!"
         }
@@ -38,26 +38,32 @@ function __ChartsConstructor() {
             xName: xName,
             labels: xSteps,
             expectedMax: expectedMax,
-            datasets: createDatasetFromSteps(params, updateFn, ySteps, xSteps, yName, (y,x) => {
+            datasets: createDatasetFromSteps.call(this, params, updateFn, ySteps, xSteps, yName, (y,x) => {
                 let r = {};
                 r[yId] = y;
                 r[xId] = x;
                 return r;
-            }, strict, middleLineTitle ? {title: middleLineTitle, expectedMax: expectedMax} : undefined)
+            }, strict, middleLineTitle ? {title: middleLineTitle, expectedMax: expectedMax} : undefined, pointRadius)
         });
     };
 
-    function createDatasetFromSteps(params, updateFn, ySteps, xSteps, yLabel, f, strict = false, middleLine) {
+    this.mapUpdateSet = function (xSteps, params, xF, {updateFn = __defaultUpdateFn, strict = false, key = 'H'} = {}) {
+        return xSteps.map(function (x) {
+            return updateFn(Object.assign(Object.create(params), xF(x)), strict)[key];
+        });
+    };
+
+    function createDatasetFromSteps(params, updateFn, ySteps, xSteps, yLabel, f, strict = false, middleLine, pointRadius) {
         let datasets = ySteps.map(function (y, idx) {
+            // noinspection JSPotentiallyInvalidUsageOfThis
             return {
                 label: yLabel + ' = ' + y,
                 fill: false,
                 lineTension: 0.2,
                 borderColor: COLOR_ARR[idx],
                 backgroundColor: COLOR_ARR[idx],
-                data: xSteps.map(function (x) {
-                    return updateFn(Object.assign(Object.create(params), f(y, x)), strict).H;
-                })
+                pointRadius: pointRadius,
+                data: this.mapUpdateSet(xSteps, params, x => f(y,x), {updateFn: updateFn, strict: strict})
             };
         });
         if (middleLine && middleLine.expectedMax) {
@@ -76,7 +82,7 @@ function __ChartsConstructor() {
     }
 
     this.createChart = function(canvasId, {type, labels = [], datasets = [], xName = '', title = '', expectedMax = 1,
-            showLegend = true, tooltipsMode = 'nearest', stacked = false, onClick} = {}) {
+            showLegend = true, tooltipsMode = 'nearest', stacked = false, onClick, beginAtZero = true} = {}) {
         let ctx = document.getElementById(canvasId).getContext('2d');
         let max = Math.max.apply(null, datasets.map(d => d.data.filter(x => !Number.isNaN(x))).flat());
         return new Chart(ctx, {
@@ -122,7 +128,7 @@ function __ChartsConstructor() {
                             labelString: 'H'
                         },
                         ticks : {
-                            beginAtZero : true,
+                            beginAtZero : beginAtZero,
                             max: Math.max(max, expectedMax)
                         }
                     }]

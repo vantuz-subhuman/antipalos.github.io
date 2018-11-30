@@ -1,0 +1,248 @@
+<html>
+    <head>
+
+        <title>
+            Cardano Pool Performance Demo
+        </title>
+
+        <script src="../../assets/js/vendor/jquery/jquery.min.js"></script>
+        <script src="../../assets/js/hashtabs.js"></script>
+        <script src="../../assets/js/utils.js"></script>
+        <script src="../../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.bundle.min.js"></script>
+        <script src="../demo-charts.js"></script>
+        <script src="../demo-page.js"></script>
+
+        <link rel="stylesheet" href="../../node_modules/bootstrap/dist/css/bootstrap.min.css">
+        <link rel="stylesheet" href="../demo-page.css">
+
+        <script language="JavaScript">
+
+            const PARAMS = {
+                RESERVE: 13887515354,
+                INFL: 5,
+                EPOCH: 1,
+                MISS: 5,
+            };
+
+            $(function() {
+                DemoCharts.setDefaultUpdateFn(update);
+                DemoPage.bind(PARAMS, {
+                    update: update,
+                    charts: [
+                        ['chart-infl', draw_infl_chart],
+                        ['chart-punish', draw_punishment_chart],
+                    ]
+                });
+            });
+
+            function update(params) {
+                params.YEAR_MINT = (params.RESERVE * (params.INFL/100)).toFixed(6);
+                params.EPOCH_INFL = ((Math.pow(1 + (params.INFL / 100.0), 1.0 / 73) - 1) * 100).toFixed(5);
+                let infl = params.EPOCH_INFL/100;
+                params.EPOCH_MINT = (params.RESERVE * infl).toFixed(6);
+                let decrease = Math.pow(1 - infl, params.EPOCH);
+                console.log(1 - infl);
+                let decrease2 = Math.pow(0.9993, params.EPOCH);
+                let h = params.RESERVE * decrease * infl;
+                params.H = (h).toFixed(6);
+                params.K = Math.pow(1 - decrease2,2) * 15000000;
+                let miss = params.MISS/100;
+                let blocksDone = 216 * (1-miss);
+                params.P = (h + params.K) * 0.01;
+                params.PR = (h + (blocksDone * (params.K/216))) * 0.01;
+                return params;
+            }
+
+            function draw_infl_chart(canvas_id, params) {
+                let years = [...Array(50).keys()];
+                let expectedMax = params.EPOCH_MINT * 1.8;
+                return DemoCharts.createChart(canvas_id, {
+                    type: 'line',
+                    title: 'Imaginary global rewards per EPOCH (INFL = ' + params.INFL + '%)',
+                    labels: years,
+                    xName: 'Years',
+                    expectedMax: expectedMax > 0 ? expectedMax : 1,
+                    stacked: true,
+                    tooltipsMode: 'x',
+                    datasets: [
+                        {
+                            label: 'Inflation rewards',
+                            backgroundColor: DemoCharts.getColors().blue,
+                            pointRadius: 2,
+                            data: DemoCharts.mapUpdateSet(years, params, e => ({EPOCH: e * 73}))
+                        },
+                        {
+                            label: 'Fee rewards (imaginary)',
+                            backgroundColor: DemoCharts.getColors().orange,
+                            pointRadius: 2,
+                            data: DemoCharts.mapUpdateSet(years, params, e => ({EPOCH: e * 73}), {key: 'K'})
+                        },
+                    ]
+                });
+            }
+
+            function draw_punishment_chart(canvas_id, params) {
+                let years = [...Array(50).keys()];
+                let expectedMax = params.P * 1.6;
+                return DemoCharts.createChart(canvas_id, {
+                    type: 'line',
+                    title: 'Imaginary "innocent" pool rewards per EPOCH (MISS = ' + params.MISS + '%)',
+                    labels: years,
+                    xName: 'Years',
+                    expectedMax: expectedMax > 0 ? expectedMax : 1,
+                    tooltipsMode: 'x',
+                    beginAtZero: false,
+                    datasets: [
+                        {
+                            fill: false,
+                            label: 'Ideal reward',
+                            backgroundColor: DemoCharts.getColors().grey,
+                            borderColor: DemoCharts.getColors().grey,
+                            pointRadius: 1,
+                            data: DemoCharts.mapUpdateSet(years, params, e => ({EPOCH: e * 73}), {key: 'P'})
+                        },
+                        {
+                            fill: false,
+                            label: 'Received reward',
+                            backgroundColor: DemoCharts.getColors().green,
+                            borderColor: DemoCharts.getColors().green,
+                            pointRadius: 1,
+                            data: DemoCharts.mapUpdateSet(years, params, e => ({EPOCH: e * 73}), {key: 'PR'})
+                        },
+                    ]
+                });
+            }
+            </script>
+    </head>
+    <body>
+
+        <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top border-bottom">
+            <span class="navbar-brand"><a href="../..">Cardano Calculator</a> / <a href="..">Docs</a> / Punishment sharing demo</span>
+        </nav>
+
+        <div class="container-fluid">
+
+            <h3>Parameters</h3>
+            <div class="container">
+                <div class="row">
+                    <label class="col-sm form-group form-control">
+                        <span>INFL: </span><input id="INFL" type="number" valtype="float" min="0" step="0.1"><span class="text-nowrap"> (yearly reserve decrease, %)</span>
+                    </label>
+                    <label class="col-sm form-group form-control">
+                        <span>MISS: </span><input id="MISS" type="number" valtype="float" min="0" step="0.1"><span class="text-nowrap"> (missed blocks in epoch, %)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="tab-content">
+
+                <div id="formula" class="tab-pane active">
+
+                    <h3 class="pt-2">Formula break-down</h3>
+
+                    <div class="row">
+                        <div class="col border">
+                            <span class="text-nowrap">Reserve = <span class="result" id="RESERVE">?</span> ADA (available for inflation)</span><br/>
+                            <span class="text-nowrap">Y-MINT [Reserve * INFL%] = <span class="result" id="YEAR_MINT">?</span> ADA (minted in the first year)</span><br/>
+                            <br/>
+                            <span class="text-nowrap">E-INFL [((1+INFL/100)^(1/73)-1)*100] = <span class="result" id="EPOCH_INFL">?</span> (per-epoch reserve decrease, %)</span><br/>
+                            <span class="text-nowrap">E-MINT [Reserve * E-INFL%] = <span class="result" id="EPOCH_MINT">?</span> ADA (minted in the first epoch)</span><br/>
+                            <br/>
+                        </div>
+                    </div>
+
+                    <div class="row d-flex justify-content-start">
+                        <div class="chart-canvas border">
+                            <canvas id="chart-infl"></canvas>
+                        </div>
+                        <div class="chart-canvas border">
+                            <canvas id="chart-punish"></canvas>
+                        </div>
+                    </div>
+
+                    <h3 class="pt-2">Explanation</h3>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <p>
+                                Cardano staking model includes a mechanism to ensure a <b>minimum</b> "desired" number
+                                of nodes present in the system. The system is system and utilizes the <code>1/k</code>
+                                formula where <code>k</code> is equal to the desired number of pools.
+                            </p>
+                            <p>
+                                This formula gives the <b>maximum</b> possible stake share that will be used
+                                to calculate reward for any single node. For example (simplified), if a pool
+                                controls 0.5% of all stake - then his share is <code>0.005</code>,
+                                and he (ideally) should be eligible for the same share of rewards <code>(R)</code>
+                                (i.e. - <code>reward = R * 0.005</code>), and if a node owns 1% (<code>0.01</code> share)
+                                then it should be eligible for 1% of reward, and if it controls 2% of stake - then for
+                                2% of rewards. But, if we have <code>k=100</code> then the maximum possible reward
+                                share is <code>1/k = 0.01</code> which is 1%. And this means that whatever share,
+                                larger than 1%, a node may control - it will <b>never</b> get more than 1% of rewards.
+                            </p>
+                            <p>
+                                This mechanism ensures that there's no financial profit for any single node to control
+                                an unproportionally large share of all stake. It is specifically important for the system
+                                of native staking-pools that Cardano will have. A single pool can easily grow out of
+                                proportion because of users irrationality that delegate everything to the most popular
+                                pool out there (e.g. - Bitcoin mining pools). <code>1/k</code> formula ensures that
+                                if users delegate to a pool that grows out of proportion over the limit - they start
+                                losing profits, and the only solution to get those profits back is to move the stake
+                                to smaller pools that have not yet reach their limit.
+                            </p>
+
+                            <h4>Parameters description</h4>
+                            <p>
+                                "Number of slots owned" <code>(N)</code> - how many slots did the node won at the beginning
+                                of the epoch. These slots are considered to be "owned" by this node, and the node is
+                                supposed to create the same amount of blocks. This number cannot be smaller than
+                                number of created blocks <code>(n)</code>.
+                            </p>
+                            <p>
+                                "Number of created blocks" <code>(n)</code> - how much actual blocks were created
+                                by the node. This number cannot be larger than number of owned slots <code>(N)</code>.
+                            </p>
+                            <p>
+                                "Raw pool rewards" <code>(f(s,o))</code> - the raw reward, earned by this pool
+                                based on its stake. You can use <a href="../pool-reward-demo">specific separate
+                                demo page</a> to see how this works.
+                            </p>
+                            <p>
+                                "penalty severity" <code>(y)</code> - a system constant. This parameter determines,
+                                how severely the node will be punished depending on how many slots are missed.
+                                You can see different values of this parameter being plotted on the chart.
+                            </p>
+
+                            <div class="border-top pt-2">
+                                <h5>Sources</h5>
+                                <p>
+                                    This formula is taken from the official reward scheme paper:
+                                    <a href="..">Calculator Documentation</a>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <br/>
+            <br/>
+
+            <div class="row">
+                <div class="col-md-12">
+                    <div id="footer" class="text-center">
+                        GitHub <a target="_blank" href="https://github.com/antipalos/antipalos.github.io/issues?q=is%3Aopen+is%3Aissue+project%3Aantipalos%2Fantipalos.github.io%2F1">@Antipalos</a>
+                        | Dev: <a target="_blank" href="https://twitter.com/vsubhuman">@vsubhuman</a>
+                        | Forum: <a target="_blank" href="https://forum.cardano.org/t/cardano-staking-profits-calculator/12314">forum.cardano.org</a>
+                        | Chat: <a target="_blank" href="https://t.me/CardanoGeneral">t.me/CardanoGeneral</a>
+                        | Reddit: <a target="_blank" href="https://www.reddit.com/r/cardano/comments/8m0ji3/cardano_staking_profits_calculator/">r/Cardano</a>
+                        | Donate: <a target="_blank" href="https://cardanowiki.info/wiki/Funding">CardanoWiki</a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </body>
+</html>
